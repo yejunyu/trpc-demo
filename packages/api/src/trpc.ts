@@ -4,9 +4,6 @@ import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import jwt from "jsonwebtoken";
 import { ZodError } from "zod";
 import superjson from "superjson";
-import pino from "pino";
-
-const logger = pino();
 
 export const createContext = ({ req }: CreateExpressContextOptions) => {
   // 读取token
@@ -27,42 +24,70 @@ export const createContext = ({ req }: CreateExpressContextOptions) => {
 
 // 初始化 trpc
 type Context = Awaited<ReturnType<typeof createContext>>;
-const t = initTRPC.context<Context>().create({
-  transformer: superjson,
-});
+// const t = initTRPC.context<Context>().create({
+  // transformer: superjson,
+// });
+const t = initTRPC.context<Context>().create();
 
 // 全局中间件：日志，计时，异常处理
-const globalMiddleware = t.middleware(async (opts) => {
-  const { path, type, next } = opts;
+const globalMiddleware = t.middleware(async ({ path, type, next }) => {
   const start = Date.now();
-
   try {
     const result = await next();
-    const durationMs = Date.now() - start;
-    logger.info({ path, type, durationMs }, '✅ OK');
-
-    // 成功时，直接在这里包装，使用正确的路径
-    return {
-      ...result,
-      data: {
-        type: 'data',
+    const end = Date.now();
+    console.log(`[${type}] ${path} - ${end - start}ms`);
+    if (result.ok) {
+      return {
+        ...result,
         data: {
-          code: 200,
-          msg: 'success',
-          data: result.data.data, // 正确的业务数据路径
+          code: 0,
+          message: "success",
+          data: result.data,
         },
-      },
-    };
+      };
+    } else {
+      return {
+        ...result,
+        data: {
+          code: 1,
+          message: result.error?.message || "error",
+          data: null,
+        },
+      };
+    }
   } catch (error) {
-    // ... (catch 块的代码和之前一样，是正确的)
+    const duration = Date.now() - start;
+    if (error instanceof TRPCError) {
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.error(
+        `[${type}] ${path} - ${errorCode} - ${errorMessage} - ${duration}ms`
+      );
+      throw error;
+    } else if (error instanceof ZodError) {
+      console.error(
+        `[${type}] ${path} - ZodError - ${error.message} - ${duration}ms`
+      );
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message,
+      });
+    } else {
+      console.error(
+        `[${type}] ${path} - Internal Server Error - ${error} - ${duration}ms`
+      );
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Internal server error",
+      });
+    }
   }
 });
 
-const baseProcedure = t.procedure.use(globalMiddleware);
-
+const tWithMiddleware = t.procedure.use(globalMiddleware);
 // 导出组件
 export const router = t.router;
-export const publicProcedure = baseProcedure;
+export const publicProcedure = tWithMiddleware;
 
 // 创建中间件来检查用户是否认证
 const isAuthed = t.middleware(({ ctx, next }) => {
@@ -79,4 +104,4 @@ const isAuthed = t.middleware(({ ctx, next }) => {
   });
 });
 // 创建一个受保护的Procedure
-export const protectedProcedure = t.procedure.use(isAuthed);
+export const protectedProcedure = tWithMiddleware.use(isAuthed);

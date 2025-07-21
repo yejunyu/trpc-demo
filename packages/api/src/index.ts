@@ -14,6 +14,7 @@ import { createContext } from "./trpc.js";
 
 const app = express();
 app.use(cors({ origin: "*" }));
+// app.use(express.json());
 app.use(
   "/api",
   createExpressMiddleware({
@@ -23,7 +24,6 @@ app.use(
 );
 // 启动fuwuq
 const port = 4000;
-app.listen(port,()=>{
-    console.log("xxxxxxxxx,启动。。。。。。");
-    
-})
+app.listen(port, () => {
+  console.log("xxxxxxxxx,启动。。。。。。");
+});
