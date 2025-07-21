@@ -3,7 +3,6 @@ import { db } from "./db/db.js";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import jwt from "jsonwebtoken";
 import { ZodError } from "zod";
-import superjson from "superjson";
 
 export const createContext = ({ req }: CreateExpressContextOptions) => {
   // 读取token
@@ -12,7 +11,7 @@ export const createContext = ({ req }: CreateExpressContextOptions) => {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-        userId: bigint;
+        userId: number;
       };
       return { db, user: { id: decoded.userId } };
     } catch (error) {

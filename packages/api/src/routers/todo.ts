@@ -32,7 +32,7 @@ export const todoRouter = router({
   toggleTodo: protectedProcedure
     .input(
       z.object({
-        id: z.bigint(),
+        id: z.int(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -62,7 +62,7 @@ export const todoRouter = router({
   deleteTodo: protectedProcedure
     .input(
       z.object({
-        id: z.bigint(),
+        id: z.int(),
       })
     )
     .mutation(async ({ ctx, input }) => {
